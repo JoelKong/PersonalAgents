@@ -42,6 +42,7 @@ def authenticate_gmail():
             token.write(creds.to_json())
     return build('gmail', 'v1', credentials=creds)
 
+
 # Function calling to get emails based off a time period the user specifies
 def get_emails(day):
     service = authenticate_gmail()
@@ -66,7 +67,8 @@ def get_emails(day):
 
     return json.dumps(emails)
 
-# Function calling to send or reply to an email based off what the user wnats
+# Function calling to send or reply to an email based off what the user wants
+# Can potentially include fine tuning to train the model to talk based off my writing style, the model can potentially access all my sent mail and learn from the way i speak to draft and email
 def send_email(receiver, subject, body, message_id = None, thread_id = None):
     service = authenticate_gmail()
     message = MIMEText(body)
@@ -181,7 +183,7 @@ def email_agent(content):
 
 if __name__ == "__main__":
     messages = []
-    system_message = {"role": "system", "content": "You are an email assistant helping out a main agent whose role is to assist his creator named Joel. You have the ability to analyze, summarize and send emails. You must categorise the emails based off their importance and state reccomendations that the user can take based off these emails only if they are really important. Use the supplied tools to assist the user. Give your response in plain text and exclude special HTML entities or encoded characters in your response or email. "}
+    system_message = {"role": "system", "content": "You are an email assistant helping out a main agent whose role is to assist his creator named Joel. You have the ability to analyze, summarize and send emails. Ignore emails with low importance and just briefly shift them into categories like 'ads and spam'. You must list down important emails and reccomendations that the user can take based off these emails only if they are really important. Use the supplied tools to assist the user. Give your response in plain text and exclude special HTML entities or encoded characters in your response or email. "}
     messages.append(system_message)
     while True:
         content = input("")
