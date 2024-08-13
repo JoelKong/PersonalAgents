@@ -1,6 +1,7 @@
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
+import json
 from email.utils import parsedate_to_datetime
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -28,12 +29,6 @@ def clean_text(text):
     
     return text
 
-def is_today(email_date):
-    """Check if the email date is today."""
-    email_date = parsedate_to_datetime(email_date)
-    now = datetime.now()
-    return email_date.date() == now.date()
-
 def authenticate_gmail():
     creds = None
     if os.path.exists('token.json'):
@@ -48,8 +43,9 @@ def authenticate_gmail():
             token.write(creds.to_json())
     return build('gmail', 'v1', credentials=creds)
 
-def get_today_emails(service):
-    query = 'newer_than:1d'
+def get_emails(day):
+    query = f'newer_than:{day}'
+    service = authenticate_gmail()
     results = service.users().messages().list(userId='me', q=query).execute()
     messages = results.get('messages', [])
     
@@ -58,75 +54,83 @@ def get_today_emails(service):
             msg = service.users().messages().get(userId='me', id=message['id']).execute()
             headers = {header['name']: header['value'] for header in msg['payload']['headers']}
 
-            if is_today(headers.get('Date', '')):
-                email_data = {
-                    'date': headers.get('Date', ''),
-                    'from': headers.get('From', ''),
-                    'subject': headers.get('Subject', ''),
-                    'body': clean_text(msg.get('snippet', '')),
-                }
-                emails.append(email_data)
+            email_data = {
+                'date': headers.get('Date', ''),
+                'from': headers.get('From', ''),
+                'subject': headers.get('Subject', ''),
+                'body': clean_text(msg.get('snippet', '')),
+            }
+            emails.append(email_data)
 
-    return emails
+    return json.dumps(emails)
 
-def main():
-    service = authenticate_gmail()
-    emails = get_today_emails(service)
-    print(emails)
+def email_analysis_agent(content):
+    user_message = {"role": "user", "content": content}
+    messages.append(user_message)
 
-    # for email in emails:
-    #     print(email)
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_emails",
+                "description": "Retrieves all emails that are sent me in a given time period. Call this whenever you need access to my emails that are sent to me, for example when a person asks 'I need an analysis of my emails'. The number of days of email must be specified by the user.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "day": {
+                            "type": "string",
+                            "description": "The number of days worth of email the user wishes to check in the format of '[number]d'",
+                        },
+                    },
+                    "required": ["day"],
+                },
+            }
+        }
+    ]
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=tools,
+        tool_choice="auto"
+    )
+
+    result = response.choices[0].message
+    tool_calls = result.tool_calls
+
+    if tool_calls:
+        messages.append(result)
+        available_functions = {
+            "get_emails": get_emails
+        }
+        for tool_call in tool_calls:
+            print(f"Calling function: {tool_call.function.name} with params {tool_call.function.arguments}")
+            function_to_call = available_functions[tool_call.function.name]
+            function_args = json.loads(tool_call.function.arguments)
+            function_response = function_to_call(day=function_args.get('day'))
+            messages.append({
+                "tool_call_id": tool_call.id,
+                "role": "tool",
+                "name": tool_call.function.name,
+                "content": function_response
+            })
+
+        second_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+        )
+
+        second_result = second_response.choices[0].message
+
+        return second_result.content
     
-    # important_emails = []
-    # for email in emails:
-    #     result = analyze_email(email)
-    #     if result['important']:
-    #         important_emails.append({'summary': result['summary'], 'email': email})
-    
-    # print("Important Emails:")
-    # for imp_email in important_emails:
-    #     print(f"Summary: {imp_email['summary']}")
-    #     print(f"Original: {imp_email['email']['body']}\n")
+    return result.content
 
-if __name__ == '__main__':
-    main()
-
-# def analyze_email_content(email_body):
-#     """Use OpenAI to analyze sentiment and summarize the email."""
-#     response = openai.ChatCompletion.create(
-#         model="gpt-4-0613",
-#         messages=[
-#             {"role": "system", "content": "You are an email assistant that analyzes and summarizes emails."},
-#             {"role": "user", "content": f"Analyze this email and tell me if it's important: {email_body}"}
-#         ],
-#         functions=[
-#             {
-#                 "name": "determine_importance_and_summarize",
-#                 "description": "Determines if an email is important and summarizes it.",
-#                 "parameters": {
-#                     "type": "object",
-#                     "properties": {
-#                         "important": {"type": "boolean"},
-#                         "summary": {"type": "string"},
-#                     },
-#                     "required": ["important", "summary"]
-#                 }
-#             }
-#         ],
-#         function_call="auto"
-#     )
-#     result = response['choices'][0]['message']['function_call']['arguments']
-#     return json.loads(result)
-
-# def fetch_and_analyze_emails():
-#     """Main function to fetch and analyze today's emails."""
-#     service = authenticate_gmail()
-#     emails = get_today_emails(service)
-    
-#     important_emails = []
-#     for email in emails:
-#         result = analyze_email_content(email['body'])
-#         if result['important']:
-#             important_emails.append({'summary': result['summary'], 'email': email})
-    
-#     return important_emails
+if __name__ == "__main__":
+    messages = []
+    system_message = {"role": "system", "content": "You are an email assistant that analyzes and summarizes emails. You can also categorise the emails based off their importance and state reccomendations or after actions that the user can take based off these emails only if they are really important. Use the supplied tools to assist the user. Give your response in plain text. "}
+    messages.append(system_message)
+    while True:
+        content = input("")
+        response = email_analysis_agent(content)
+        print(response)
