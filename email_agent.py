@@ -30,15 +30,15 @@ def clean_text(text):
 # Gmail Authentication
 def authenticate_gmail():
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists('gmailtoken.json'):
+        creds = Credentials.from_authorized_user_file('gmailtoken.json', SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
+        with open('gmailtoken.json', 'w') as token:
             token.write(creds.to_json())
     return build('gmail', 'v1', credentials=creds)
 
@@ -94,7 +94,7 @@ def send_email(receiver, subject, body, message_id = None, thread_id = None):
         print(f"An error occurred: {e}")
 
 # Email agent responsible for managing my emails
-def email_agent(content):
+def email_agent(content, messages):
     user_message = {"role": "user", "content": content}
     messages.append(user_message)
 
@@ -181,11 +181,11 @@ def email_agent(content):
     
     return result.content
 
-if __name__ == "__main__":
-    messages = []
-    system_message = {"role": "system", "content": "You are an email assistant helping out a main agent whose role is to assist his creator named Joel. You have the ability to analyze, summarize and send emails. Ignore emails with low importance and just briefly shift them into categories like 'ads and spam'. You must list down important emails and reccomendations that the user can take based off these emails only if they are really important. Use the supplied tools to assist the user. Give your response in plain text and exclude special HTML entities or encoded characters in your response or email. "}
-    messages.append(system_message)
-    while True:
-        content = input("")
-        response = email_agent(content)
-        print(response)
+# if __name__ == "__main__":
+#     messages = []
+#     system_message = {"role": "system", "content": "You are an email assistant helping out a main agent whose role is to assist his creator named Joel. You have the ability to analyze, summarize and send emails. Ignore emails with low importance and just briefly shift them into categories like 'ads and spam'. You must list down important emails and reccomendations that the user can take based off these emails only if they are really important. Use the supplied tools to assist the user. Give your response in plain text and exclude special HTML entities or encoded characters in your response or email. "}
+#     messages.append(system_message)
+#     while True:
+#         content = input("")
+#         response = email_agent(content)
+#         print(response)

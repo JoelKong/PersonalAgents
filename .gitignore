@@ -1,3 +1,4 @@
 .env
 credentials.json
-token.json
+gmailtoken.json
+calendartoken.json

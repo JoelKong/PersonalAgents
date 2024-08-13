@@ -20,15 +20,15 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Google calendar Authentication
 def authenticate_calendar():
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists('calendartoken.json'):
+        creds = Credentials.from_authorized_user_file('calendartoken.json', SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
+        with open('calendartoken.json', 'w') as token:
             token.write(creds.to_json())
     return build('calendar', 'v3', credentials=creds)
 
@@ -94,7 +94,7 @@ def create_event(title, start_time, end_time, description=None, location=None):
         return json.dumps(f"An error occurred: {e}")
 
 # Calendar agent responsible for managing Google Calendar
-def calendar_agent(content):
+def calendar_agent(content, messages):
     user_message = {"role": "user", "content": content}
     messages.append(user_message)
 
@@ -178,12 +178,12 @@ def calendar_agent(content):
     
     return result.content
 
-if __name__ == "__main__":
-    messages = []
-    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    system_message = {"role": "system", "content": f"You are an Calendar assistant helping out a main agent whose role is to assist his creator named Joel. Your main responsibility is to manage and organize events. Use the supplied tools to assist the user. Take note that the current date and time is {date_time}."}
-    messages.append(system_message)
-    while True:
-        content = input("")
-        response = calendar_agent(content)
-        print(response)
+# if __name__ == "__main__":
+#     messages = []
+#     date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#     system_message = {"role": "system", "content": f"You are an Calendar assistant helping out a main agent whose role is to assist his creator named Joel. Your main responsibility is to manage and organize events. Use the supplied tools to assist the user. Take note that the current date and time is {date_time}."}
+#     messages.append(system_message)
+#     while True:
+#         content = input("")
+#         response = calendar_agent(content)
+#         print(response)
