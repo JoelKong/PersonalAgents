@@ -75,10 +75,8 @@ def main_agent(content):
             
             # Append the user message to the correct queue
             if function_to_call == email_agent:
-                messages_email.append(user_message)
                 function_response = function_to_call(content=function_args.get('content'), messages=messages_email)
             elif function_to_call == calendar_agent:
-                messages_calendar.append(user_message)
                 function_response = function_to_call(content=function_args.get('content'), messages=messages_calendar)
             
             # Append the function response to the global messages
