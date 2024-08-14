@@ -2,7 +2,6 @@ import os
 import re
 import base64
 import json
-from playwright.async_api import async_playwright
 from PIL import Image
 from io import BytesIO
 from dotenv import load_dotenv
@@ -31,7 +30,7 @@ def encode_image(image_path):
 # Function to highlight clickable elements
 async def highlight_clickables(page):
     interactable_elements = await page.evaluate('''() => {
-        const elements = document.querySelectorAll('div[id^="win0divPTNUI_LAND_REC_GROUPLET"], li[id^="win1divPTGP_STEPS_L1_row"], a, button, input, textarea');
+        const elements = document.querySelectorAll('div[id="win0divPTNUI_LAND_REC_GROUPLET$1"], div[ptgpid="ADMN_S201801281809025135349589"], input[type="checkbox"], a[role="presentation"], a, button, input, textarea');
         const visibleElements = [];
 
         elements.forEach(element => {
