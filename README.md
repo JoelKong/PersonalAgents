@@ -50,12 +50,12 @@ By integrating the openai whisper API, you can speak into the mic if you are laz
 ## Reflection, Limitations and Potential
 It may be quite costly as the agents are prompting each other back and forth before returning a finalised answer to the user and slower than a regular prompt due to the numerous API calls made. Especially for the scraper agent, even though only necessary elements in the DOM are being pasted for the model to understand, it can still take up a lot of tokens. Moreover, since it is not personally trained, it might sometimes hallucinate along the way by selecting a wrong html tag to interact with.
 
-Working on this project made me realise the power and untapped potential of AI Agents as they have the power to do so much things and automate our daily life. Beyond webpages, even advanced automation systems like RPA can be integrated with AI expand the different possibilities of what we can create. Hence, I am looking forward to creating more of such projects and start to think of what else i can automate in other people's lives.
+Working on this project made me realise the power and untapped potential of AI Agents as they have the power to do so much things and automate our daily life. Beyond webpages, even advanced automation systems like RPA can be integrated with AI and expand the different possibilities of what we can create. Hence, I am looking forward to creating more of such projects and start to think of what else i can automate in other people's lives.
 
 ## How to run locally
-clone the repository
-pip install requirements.txt
-Create a google cloud project with google calendar and gmail, set scopes and import credentials.json
-Change the user_data_dir variable in main_agent.py to match your google chrome directory
+clone the repository  
+pip install requirements.txt  
+Create a google cloud project with google calendar and gmail, set scopes and import credentials.json  
+Change the user_data_dir variable in main_agent.py to match your google chrome directory  
 run main agent.py (remember to close your browser before running)
 
