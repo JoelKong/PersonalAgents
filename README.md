@@ -55,6 +55,7 @@ Working on this project made me realise the power and untapped potential of AI A
 ## How to run locally
 clone the repository  
 pip install requirements.txt  
+Set up openai key in env file  
 Create a google cloud project with google calendar and gmail, set scopes and import credentials.json  
 Change the user_data_dir variable in main_agent.py to match your google chrome directory  
 run main agent.py (remember to close your browser before running)
