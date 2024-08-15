@@ -10,13 +10,13 @@ from googleapiclient.discovery import build
 from email.mime.text import MIMEText
 import base64
 
+# Gmail scopes
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
-# Load env keys
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Remove URLs, images, and special characters from the text.
+# Remove URLs, images, and special characters from the email text
 def clean_text(text):
     text = re.sub(r'http\S+|www.\S+', '', text)
     
@@ -120,13 +120,13 @@ def email_agent(content, messages):
             "type": "function",
             "function": {
                 "name": "send_email",
-                "description": "Sends an email to the specified receiver. Call this whenever you need to send an email, for example when a person asks 'Can you help me to email john about the meeting?'. The receiver must be specifically mentioned by the user and you can interpret the subject and body by yourself unless you require more information. If the user wants to reply to an email thread, use the message id and thread id that is provided to you for that particular email.",
+                "description": "Sends an email to the specified receiver. Call this whenever the request is related to sending an email, for example when a person asks 'Can you send a email to this person?'. The receiver must be specifically mentioned by the user unless you have the information of it and you can interpret the subject and body by yourself unless you require more information. If the user wants to reply to an email thread, use the message id and thread id that is provided to you for that particular email.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "receiver": {"type": "string", "description": "The email address of the receiver."},
                         "subject": {"type": "string", "description": "The subject of the email."},
-                        "body": {"type": "string", "description": "The body of the email."},
+                        "body": {"type": "string", "description": "The body of the email. Leave the salutation as 'Regards, Joel Kong'"},
                         "message_id": {"type": "string", "description": "The message id of the email"},
                         "thread_id": {"type": "string", "description": "The thread id of the email chain."},
                     },
@@ -180,12 +180,3 @@ def email_agent(content, messages):
         return second_result.content
     
     return result.content
-
-# if __name__ == "__main__":
-#     messages = []
-#     system_message = {"role": "system", "content": "You are an email assistant helping out a main agent whose role is to assist his creator named Joel. You have the ability to analyze, summarize and send emails. Ignore emails with low importance and just briefly shift them into categories like 'ads and spam'. You must list down important emails and reccomendations that the user can take based off these emails only if they are really important. Use the supplied tools to assist the user. Give your response in plain text and exclude special HTML entities or encoded characters in your response or email. "}
-#     messages.append(system_message)
-#     while True:
-#         content = input("")
-#         response = email_agent(content)
-#         print(response)

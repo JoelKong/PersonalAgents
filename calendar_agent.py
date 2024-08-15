@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 import pytz
 
+# Scopes for google calendar API
 SCOPES = [
     'https://www.googleapis.com/auth/calendar.events',
     'https://www.googleapis.com/auth/calendar'
@@ -32,7 +33,7 @@ def authenticate_calendar():
             token.write(creds.to_json())
     return build('calendar', 'v3', credentials=creds)
 
-# Function calling to get events within a specified duration
+# Function calling to get calendar events within a specified duration
 def get_events(duration=None):
     service = authenticate_calendar()
     
@@ -127,7 +128,7 @@ def calendar_agent(content, messages):
                         "description": {"type": "string", "description": "The description of the event."},
                         "location": {"type": "string", "description": "The location of the event."},
                     },
-                    "required": ["summary", "start_time", "end_time"],
+                    "required": ["title", "start_time", "end_time", "description", "location"],
                 },
             }
         },
@@ -177,13 +178,3 @@ def calendar_agent(content, messages):
         return second_result.content
     
     return result.content
-
-# if __name__ == "__main__":
-#     messages = []
-#     date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#     system_message = {"role": "system", "content": f"You are an Calendar assistant helping out a main agent whose role is to assist his creator named Joel. Your main responsibility is to manage and organize events. Use the supplied tools to assist the user. Take note that the current date and time is {date_time}."}
-#     messages.append(system_message)
-#     while True:
-#         content = input("")
-#         response = calendar_agent(content)
-#         print(response)

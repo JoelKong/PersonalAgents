@@ -1,0 +1,10 @@
+openai==1.40.6
+google-api-core==2.19.1
+google-api-python-client==2.140.0
+google-auth==2.33.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
+googleapis-common-protos==1.63.2
+pillow==10.4.0
+python-dotenv==1.0.1
+beautifulsoup4==4.12.3

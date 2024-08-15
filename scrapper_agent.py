@@ -7,30 +7,30 @@ from io import BytesIO
 from dotenv import load_dotenv
 from openai import OpenAI
 import time
+from bs4 import BeautifulSoup
 
-# Load environment variables for OpenAI API
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Some websites have certain illegal characters in their html tags so we need to escape them
 def escape_selector(selector: str) -> str:
-    # Escape the dollar sign and any other special characters as needed
     return re.sub(r'(\$)', r'\\\1', selector)
 
-# Function to take a screenshot and save it
+# Function to take a screenshot of the page and save it
 async def take_screenshot(page):
     screenshot = await page.screenshot()
     image = Image.open(BytesIO(screenshot))
     image.save("screenshot.jpg")
 
-# Function to encode the image
+# Function to encode the image for GPT Vision to read
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
     
-# Function to highlight clickable elements
+# Function to highlight and return clickable elements in red boxes for gpt to see what it can click
 async def highlight_clickables(page):
     interactable_elements = await page.evaluate('''() => {
-        const elements = document.querySelectorAll('div[id="win0divPTNUI_LAND_REC_GROUPLET$1"], div[ptgpid="ADMN_S201801281809025135349589"], input[type="checkbox"], a[role="presentation"], a, button, input, textarea');
+        const elements = document.querySelectorAll('div[id="win0divPTNUI_LAND_REC_GROUPLET$1"], div[ptgpid="ADMN_S201801281809025135349589"], span[id="submitButton"], a, button, input, textarea[id="APjFqb"]');
         const visibleElements = [];
 
         elements.forEach(element => {
@@ -53,52 +53,7 @@ async def highlight_clickables(page):
 
     return interactable_elements
 
-# # Function to highlight clickable elements
-# async def highlight_clickables(page):
-#     patterns = [
-#         'win0divPTNUI_LAND_REC_GROUPLET',  # Explicitly include this prefix
-#         'DERIVED_CLASS_S_SSR_DISP_TITLE',
-#         'DERIVED_CLASS_S_SSR_REFRESH_CAL',
-#         '^win\\d+divPTGP_STEP_DVW_PTGP_STEP_BTN_GB'  # Regex pattern for other IDs
-#     ]
-
-#     interactable_elements = await page.evaluate('''(patterns) => {
-#         function matchesPattern(id, pattern) {
-#             // Check if the pattern is a regex or a specific string
-#             if (pattern.startsWith('^')) {
-#                 // Regex pattern
-#                 const regex = new RegExp(pattern);
-#                 return regex.test(id);
-#             } else {
-#                 // Specific string
-#                 return id.startsWith(pattern);
-#             }
-#         }
-
-#         const elements = document.querySelectorAll('a, button, input, textarea');
-#         const visibleElements = [];
-
-#         elements.forEach(element => {
-#             const id = element.id;
-#             const rect = element.getBoundingClientRect();
-#             const inViewport = (
-#                 rect.top >= 0 &&
-#                 rect.left >= 0 &&
-#                 rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-#                 rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-#             );
-
-#             if (inViewport && (id === '' || patterns.some(pattern => matchesPattern(id, pattern)))) {
-#                 element.style.border = '2px solid red';
-#                 visibleElements.push(element.outerHTML);
-#             }
-#         });
-
-#         return visibleElements;
-#     }''', patterns)
-
-#     return interactable_elements
-
+# Function call to navigate to a webpage
 async def navigate(link, page):
     await page.goto(link)
     time.sleep(5)
@@ -106,7 +61,7 @@ async def navigate(link, page):
     await take_screenshot(page)
     return json.dumps(f"Navigated to {link} successfully! The interactable elements are {interactable_elements}")
 
-
+# Function call for gpt to click on a selector
 async def click(selector, page):
     escaped_selector = escape_selector(selector)
     locators = page.locator(escaped_selector)
@@ -118,17 +73,15 @@ async def click(selector, page):
             await element.wait_for(state='visible')
             await element.click()
             await page.wait_for_load_state('load')
-
-            # Check if the page navigation or action was successful
             time.sleep(5)
             interactable_elements = await highlight_clickables(page)
             await take_screenshot(page)
             return json.dumps(f"Clicked on element successfully! The interactable elements are {interactable_elements}")
         except Exception as e:
             continue
-
     return json.dumps("Failed to click on any of the elements.")
 
+# Function call for gpt to type on keyboard
 async def type_on_keyboard(selector, text, page):
     escaped_selector = escape_selector(selector)
     await page.fill(escaped_selector, text)
@@ -137,6 +90,7 @@ async def type_on_keyboard(selector, text, page):
     await take_screenshot(page)
     return json.dumps(f"Typed text into {selector} successfully! The interactable elements are {interactable_elements}.")
 
+# Function call for gpt to simulate hitting enter to submit forms or go to next page
 async def enter(page):
     await page.keyboard.press('Enter')
     await page.wait_for_load_state('load')
@@ -145,14 +99,28 @@ async def enter(page):
     await take_screenshot(page)
     return json.dumps(f"Pressed Enter successfully! The interactable elements are {interactable_elements}")
 
+# Function call to go back to the previous page
+async def go_back(page):
+    await page.goBack()
+    await page.wait_for_load_state('load')
+    time.sleep(5)
+    interactable_elements = await highlight_clickables(page)
+    await take_screenshot(page)
+    return json.dumps(f"Navigated back to the previous page successfully! The interactable elements are {interactable_elements}.")
+
+# Function call for gpt to scrape the full contents of the page (for now only when user specified as it can be quite expensive as i will be inserting the whole body tag into the prompt)
 async def scrape_page(page):
     body_content = await page.evaluate('''() => {
         return document.body.innerHTML;
     }''')
 
-    return body_content
+    soup = BeautifulSoup(body_content, 'html.parser')
+    content = soup.get_text()
+    clean_content = re.sub(r'<[^>]*>', '', content)
 
-# Function to navigate to the timetable page
+    return clean_content
+
+# Scrapper agent responsible for navigating the web and retrieving information
 async def scrapper_agent(content, messages, page):
     user_message = {"role": "user", "content": content}
     messages.append(user_message)
@@ -169,7 +137,7 @@ async def scrapper_agent(content, messages, page):
                     "properties": {
                         "selector": {
                             "type": "string",
-                            "description": "The html selector that you wish to select to click.",
+                            "description": "The html selector that you wish to select to click. The selector must be in the format of tag[attribute='']",
                         },
                     },
                     "required": ["selector"],
@@ -180,7 +148,7 @@ async def scrapper_agent(content, messages, page):
             "type": "function",
             "function": {
                 "name": "navigate",
-                "description": "Navigate to a website on the web. Call this whenever you need to go to a certain website to investigate it, for example when the user requests to search for something on the web you can go to google.com. The website link must be provided and can be interpretted by you if possible.",
+                "description": "Navigate to a website on the web. Call this whenever you need to go to a certain website to investigate it, for example when the user requests to search for something on the web you can go to google.com. The website link must be provided and can be interpretted by you if possible. Default to google.com. The selector must be in the format of tag[attribute='']",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -197,7 +165,7 @@ async def scrapper_agent(content, messages, page):
             "type": "function",
             "function": {
                 "name": "type_on_keyboard",
-                "description": "Type on the keyboard in a specific html selector. Call this whenever you need to type something, for example when you want to fill up an input field. The text information to be filled up must be provided unless it can be interpretted by you. The html selector to type on must also be selected by you given the information on the interactable elements.",
+                "description": "Type on the keyboard in a specific html selector. Call this whenever you need to type something, for example when you want to fill up an input field. The text information to be filled up must be provided unless it can be interpretted by you. The html selector to type on must also be selected by you given the information on the interactable elements. The selector must be in the format of tag[attribute='']",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -207,7 +175,7 @@ async def scrapper_agent(content, messages, page):
                         },
                         "selector": {
                             "type": "string",
-                            "description": "The html selector that you wish to select to type in.",
+                            "description": "The html selector that you wish to select to type in. The selector must be in the format of tag[attribute='']",
                         },
                     },
                     "required": ["text", "selector"],
@@ -229,8 +197,20 @@ async def scrapper_agent(content, messages, page):
         {
             "type": "function",
             "function": {
+                "name": "go_back",
+                "description": "Return back to the previous page of the website. Call this whenever you want to go back to the previous page of where you navigated to.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "scrape_page",
-                "description": "Call this only when the user specifies that he wants the full page information.",
+                "description": "Scrape the whole body content of the page. Call this only when the user specifies that he wants the full page information.",
                 "parameters": {
                     "type": "object",
                     "properties": {},
@@ -240,6 +220,7 @@ async def scrapper_agent(content, messages, page):
         }
     ]
 
+    # Loop until gpt decides that it is satisfied with the screenshot hence stop using the tools provided
     while not satisfied:
         if os.path.exists("screenshot.jpg"):
             base64_image = encode_image("screenshot.jpg")
@@ -265,6 +246,7 @@ async def scrapper_agent(content, messages, page):
                 "navigate": navigate,
                 "type_on_keyboard": type_on_keyboard,
                 "enter": enter,
+                "go_back": go_back,
                 "scrape_page": scrape_page
             }
             for tool_call in tool_calls:
@@ -279,6 +261,8 @@ async def scrapper_agent(content, messages, page):
                 elif function_to_call == type_on_keyboard:
                     function_response = await function_to_call(selector=function_args.get('selector'), text=function_args.get('text'), page=page)
                 elif function_to_call == enter:
+                    function_response = await function_to_call(page=page)
+                elif function_to_call == go_back:
                     function_response = await function_to_call(page=page)
                 elif function_to_call == scrape_page:
                     function_response = await function_to_call(page=page)
@@ -303,12 +287,3 @@ async def scrapper_agent(content, messages, page):
         return second_result.content
     
     return result.content
-
-# if __name__ == "__main__":
-#     messages = []
-#     system_message = {"role": "system", "content": "You are a smart information gatherer assistant helping out a main agent whose role is to assist his creator named Joel. You have the ability to control Playwright to interact with the web such as navigating or clicking and also aiding to provide synopsis of information to your main agent on details once you have completed your navigation around the web. Use the supplied tools to assist the user. Each time you use a tool, a screenshot of the page with clickable objects drawn by a red box is shown to you as well as the selectors of the interactable elements. You can then 'click' through by choosing the appriopriate html selector to use. When you reached you destination, always rely and prioritise on the screenshot to get information and give a synopsis of that information back and do not scrape it fully unless specified. If you are doing a google search, prioritise the first result in the screenshot that pops up unless specified and select the correct clickable html tag. Take note of the following website links for your information: School management website which contains information about the student such as his timetable can be found at https://in4sit.singaporetech.edu.sg/"}
-#     messages.append(system_message)
-#     while True:
-#         content = input("")
-#         response = asyncio.run(scrapper_agent(content, messages))
-#         print(response)
