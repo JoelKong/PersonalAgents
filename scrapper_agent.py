@@ -101,12 +101,29 @@ async def enter(page):
 
 # Function call to go back to the previous page
 async def go_back(page):
-    await page.goBack()
+    await page.go_back()
     await page.wait_for_load_state('load')
     time.sleep(5)
     interactable_elements = await highlight_clickables(page)
     await take_screenshot(page)
     return json.dumps(f"Navigated back to the previous page successfully! The interactable elements are {interactable_elements}.")
+
+# Function call for gpt to 'scroll' up or down by 100vh to see a new instance of the page to get more information
+async def scroll(page, direction):
+    if direction == "up":
+        await page.evaluate('''() => {
+            window.scrollBy(0, -window.innerHeight);
+        }''')
+    else:
+        await page.evaluate('''() => {
+            window.scrollBy(0, window.innerHeight);
+        }''')
+    await page.wait_for_load_state('load')
+    time.sleep(5)
+    interactable_elements = await highlight_clickables(page)
+    await take_screenshot(page)
+    return json.dumps(f"Scrolled {direction} by 100vh successfully!  The interactable elements are {interactable_elements}.")
+
 
 # Function call for gpt to scrape the full contents of the page (for now only when user specified as it can be quite expensive as i will be inserting the whole body tag into the prompt)
 async def scrape_page(page):
@@ -209,6 +226,23 @@ async def scrapper_agent(content, messages, page):
         {
             "type": "function",
             "function": {
+                "name": "scroll",
+                "description": "Scroll up or down to the next instance of the page where your window cant display at the moment. Call this whenever you require more information and want to explore more on the page to extract out more information or when the user asks you to do so.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "direction": {
+                            "type": "string",
+                            "description": "The direction you would like to scroll. Either 'up' or 'down'",
+                        },
+                    },
+                    "required": ["direction"],
+                },
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "scrape_page",
                 "description": "Scrape the whole body content of the page. Call this only when the user specifies that he wants the full page information.",
                 "parameters": {
@@ -247,6 +281,7 @@ async def scrapper_agent(content, messages, page):
                 "type_on_keyboard": type_on_keyboard,
                 "enter": enter,
                 "go_back": go_back,
+                "scroll": scroll,
                 "scrape_page": scrape_page
             }
             for tool_call in tool_calls:
@@ -264,6 +299,8 @@ async def scrapper_agent(content, messages, page):
                     function_response = await function_to_call(page=page)
                 elif function_to_call == go_back:
                     function_response = await function_to_call(page=page)
+                elif function_to_call == scroll:
+                    function_response = await function_to_call(page=page, direction=function_args.get('direction'))
                 elif function_to_call == scrape_page:
                     function_response = await function_to_call(page=page)
 
