@@ -2,7 +2,7 @@
 A team of AI agents that work together to assist the user to achieve his needs. (Email management, Schedule/Calendar management, Web exploration/scraping)
 
 ## Demo
-Insert utube link here
+[Video Link](https://youtu.be/l65S0ZVM9Io)
 
 ## Application Code
 ### Technology Stack
